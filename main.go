@@ -18,6 +18,7 @@ func main() {
 	// 1. Create the UI components
 	header := gui.NewAppHeader()
 	quickApply := gui.NewQuickApplyBar()
+	helpSection := gui.NewHelpSection()
 	routeTable := gui.NewRouteTable() // Create the route table
 
 	// 2. Define the application's core logic
@@ -100,7 +101,7 @@ func main() {
 
 	content := container.NewBorder(
 		topPanel,
-		nil,
+		helpSection.View,
 		nil,
 		nil,
 		routeTable, // Use the new RouteTable component
