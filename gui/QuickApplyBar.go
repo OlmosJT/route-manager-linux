@@ -8,18 +8,21 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 )
 
 // QuickApplyBar is a component for quickly re-applying a saved route.
 type QuickApplyBar struct {
 	View fyne.CanvasObject
 
-	OnApply func(route routemanager.StaticRoute)
+	OnApply  func(route routemanager.StaticRoute)
+	OnDelete func(route routemanager.StaticRoute)
 
 	// Internal references
-	routes      []routemanager.StaticRoute
-	dropdown    *components.ChoiceList
-	applyButton *components.CustomButton // Add a reference to the button
+	routes       []routemanager.StaticRoute
+	dropdown     *components.ChoiceList
+	applyButton  *components.CustomButton
+	deleteButton *components.CustomButton
 }
 
 // NewQuickApplyBar creates a new instance of the component.
@@ -40,13 +43,26 @@ func NewQuickApplyBar() *QuickApplyBar {
 	})
 	bar.applyButton.SetMinWidth(180.0)
 
+	bar.deleteButton = components.NewCustomButton("", func() {
+		if bar.OnDelete != nil {
+			selectedText := bar.dropdown.Selected()
+			for _, r := range bar.routes {
+				if formatRoute(r) == selectedText {
+					bar.OnDelete(r)
+					break
+				}
+			}
+		}
+	})
+	bar.deleteButton.SetIcon(theme.DeleteIcon())
+
 	bar.dropdown = components.NewChoiceList([]string{})
 
-	// ⭐️ FIX: Use our ProportionalLayout to get a consistent 5-pixel gap.
-	// We make the dropdown the single expanding element.
+	buttonGroup := container.NewHBox(bar.applyButton, bar.deleteButton)
+
 	bar.View = container.New(NewProportionalLayout(1, 5),
 		bar.dropdown.View,
-		bar.applyButton,
+		buttonGroup,
 	)
 
 	bar.Refresh() // Load initial data
@@ -57,7 +73,7 @@ func NewQuickApplyBar() *QuickApplyBar {
 func (b *QuickApplyBar) Refresh() {
 	routes, err := routemanager.LoadRoutes()
 	if err != nil {
-		log.Printf("ERROR: Failed to load routes for quick apply bar: %v", err)
+		log.Printf("ERROR: Failed to load routes: %v", err)
 		return
 	}
 
@@ -67,17 +83,18 @@ func (b *QuickApplyBar) Refresh() {
 	b.routes = routes
 
 	var options []string
-	// ⭐️ FIX: Handle the case where there are no saved routes.
 	if len(b.routes) == 0 {
 		options = []string{"[No saved routes]"}
 		b.dropdown.View.Disable()
 		b.applyButton.Disable()
+		b.deleteButton.Disable() // Disable delete button when list is empty
 	} else {
 		for _, r := range b.routes {
 			options = append(options, formatRoute(r))
 		}
 		b.dropdown.View.Enable()
 		b.applyButton.Enable()
+		b.deleteButton.Enable() // Enable delete button when list has items
 	}
 
 	b.dropdown.View.Options = options
@@ -86,7 +103,6 @@ func (b *QuickApplyBar) Refresh() {
 	} else {
 		b.dropdown.View.ClearSelected()
 	}
-
 	b.dropdown.View.Refresh()
 }
 

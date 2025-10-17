@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"route-manager/gui"
 	"route-manager/routemanager"
 
@@ -51,6 +50,25 @@ func main() {
 		routeTable.Refresh() // Refresh the table to show the new active route
 	}
 
+	quickApply.OnDelete = func(route routemanager.StaticRoute) {
+		confirmCallback := func(confirm bool) {
+			if !confirm {
+				return
+			}
+			// User confirmed, now call the backend function to delete from JSON
+			if err := routemanager.DeleteRoute(route); err != nil {
+				dialog.ShowError(err, myWindow)
+				return
+			}
+			dialog.ShowInformation("Success", "Route removed from saved history.", myWindow)
+			// Refresh the bar to show the updated list
+			quickApply.Refresh()
+		}
+		// Ask for confirmation before permanently deleting
+		confirmMsg := fmt.Sprintf("Permanently delete this route from your saved history?\n\n%s", route.Destination)
+		dialog.ShowConfirm("Confirm History Deletion", confirmMsg, confirmCallback, myWindow)
+	}
+
 	// Logic for DELETING a route from the table
 	routeTable.OnDelete = func(route routemanager.StaticRoute) {
 		// Ask for confirmation before deleting
@@ -62,10 +80,6 @@ func main() {
 			if err := routemanager.Delete(route); err != nil {
 				dialog.ShowError(err, myWindow)
 				return
-			}
-			// Also delete it from our saved JSON file, if it exists there
-			if err := routemanager.DeleteRoute(route); err != nil {
-				log.Printf("INFO: Could not delete route from JSON (it may not have been saved): %v", err)
 			}
 
 			successMsg := fmt.Sprintf("Successfully deleted route to %s", route.Destination)

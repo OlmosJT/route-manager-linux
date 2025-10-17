@@ -60,6 +60,10 @@ func NewCustomButton(label string, onTapped func()) *CustomButton {
 	return btn
 }
 
+func (b *CustomButton) SetIcon(icon fyne.Resource) {
+	b.button.SetIcon(icon)
+}
+
 // SetMinWidth allows setting the minimum width for the button.
 func (b *CustomButton) SetMinWidth(width float32) {
 	b.minWidth = width
