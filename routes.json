@@ -1,0 +1,7 @@
+[
+  {
+    "destination": "10.226.98.0/24",
+    "interface": "enp2s0",
+    "gateway": "10.226.35.1"
+  }
+]

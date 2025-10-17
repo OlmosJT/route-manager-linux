@@ -9,8 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog" // ⭐️ IMPORT the dialog package
-	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/dialog"
 )
 
 func main() {
@@ -20,55 +19,63 @@ func main() {
 	// 1. Create the UI components
 	header := gui.NewAppHeader()
 	quickApply := gui.NewQuickApplyBar()
-	routeListPlaceholder := widget.NewLabel("List of active/saved routes will appear here...")
+	routeTable := gui.NewRouteTable() // Create the route table
 
 	// 2. Define the application's core logic
 
-	// Logic for the TOP header (adding a NEW route)
+	// Logic for adding a NEW route
 	header.OnAdd = func(route routemanager.StaticRoute, save bool) {
-		log.Printf("Adding route: %+v (Save: %v)", route, save)
-
-		// a. Apply the route to the OS (requires sudo)
 		if err := routemanager.Add(route); err != nil {
-			log.Printf("ERROR: Failed to apply route: %v", err)
-			// ⭐️ Show an error dialog
 			dialog.ShowError(err, myWindow)
 			return
 		}
-
-		// b. If the user checked "Save", append it to the JSON file
 		if save {
 			if err := routemanager.AppendRoute(route); err != nil {
-				log.Printf("ERROR: Failed to save route: %v", err)
-				// ⭐️ Show an error dialog
 				dialog.ShowError(err, myWindow)
-			} else {
-				// c. If save was successful, refresh the quick apply bar
-				quickApply.Refresh()
 			}
 		}
-
-		// ⭐️ Show a success dialog
-		successMsg := fmt.Sprintf("Successfully applied route to %s", route.Destination)
-		dialog.ShowInformation("Success", successMsg, myWindow)
-
+		dialog.ShowInformation("Success", "Successfully applied route", myWindow)
 		header.ClearFields()
+		// Refresh other components
+		quickApply.Refresh()
+		routeTable.Refresh()
 	}
 
-	// Logic for the QUICK APPLY bar (applying an EXISTING saved route)
+	// Logic for applying an EXISTING saved route
 	quickApply.OnApply = func(route routemanager.StaticRoute) {
-		log.Printf("Quick applying route: %+v", route)
-
 		if err := routemanager.Add(route); err != nil {
-			log.Printf("ERROR: Failed to quick-apply route: %v", err)
-			// ⭐️ Show an error dialog
 			dialog.ShowError(err, myWindow)
-			return // Stop execution if there was an error
+			return
 		}
+		dialog.ShowInformation("Success", "Successfully re-applied route", myWindow)
+		routeTable.Refresh() // Refresh the table to show the new active route
+	}
 
-		// ⭐️ Show a success dialog
-		successMsg := fmt.Sprintf("Successfully re-applied route to %s", route.Destination)
-		dialog.ShowInformation("Success", successMsg, myWindow)
+	// Logic for DELETING a route from the table
+	routeTable.OnDelete = func(route routemanager.StaticRoute) {
+		// Ask for confirmation before deleting
+		confirmCallback := func(confirm bool) {
+			if !confirm {
+				return
+			}
+			// User confirmed, proceed with deletion
+			if err := routemanager.Delete(route); err != nil {
+				dialog.ShowError(err, myWindow)
+				return
+			}
+			// Also delete it from our saved JSON file, if it exists there
+			if err := routemanager.DeleteRoute(route); err != nil {
+				log.Printf("INFO: Could not delete route from JSON (it may not have been saved): %v", err)
+			}
+
+			successMsg := fmt.Sprintf("Successfully deleted route to %s", route.Destination)
+			dialog.ShowInformation("Success", successMsg, myWindow)
+
+			// Refresh components to reflect the change
+			quickApply.Refresh()
+			routeTable.Refresh()
+		}
+		dialog.ShowConfirm("Confirm Deletion", "Are you sure you want to delete this route?", confirmCallback, myWindow)
 	}
 
 	// 3. Assemble the main layout
@@ -78,11 +85,11 @@ func main() {
 	)
 
 	content := container.NewBorder(
-		topPanel, // Place the grouped panel at the top
+		topPanel,
 		nil,
 		nil,
 		nil,
-		routeListPlaceholder,
+		routeTable, // Use the new RouteTable component
 	)
 
 	myWindow.SetContent(content)
